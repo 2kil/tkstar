@@ -2,7 +2,7 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-05-15 11:26:09
+ * @LastEditTime: 2024-05-17 12:06:07
  * @Description:star
  */
 package star
@@ -80,11 +80,13 @@ func GetSerialKey() string {
  * @param {string} errString 自定义错误提示
  * @return {*}
  */
-func CheckErr(err error, errString ...string) {
+func CheckErr(err error, errString ...string) bool {
 	errString = append(errString, "Error")
 	if err != nil {
 		log.Println(errString, err)
+		return false
 	}
+	return true
 }
 
 /**
