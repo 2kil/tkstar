@@ -2,87 +2,82 @@
  * @Author: 2Kil
  * @Date: 2024-05-27 23:07:41
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-05-28 00:08:27
+ * @LastEditTime: 2024-05-28 11:15:40
  * @Description: 文本加密解密
  */
 package star
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"encoding/base64"
-	"fmt"
+	"io"
 	"strings"
 )
 
 /**
- * @description:异或加密
- * @param {*} text
- * @param {string} key
- * @return {*}
+ * @description: aes加密
+ * @param {string} 待加密的文本
+ * @param {string} 16,24,32密钥
+ * @return {string} 密文
  */
-func EorEncode(text, key string) string {
-	base64Text := base64.StdEncoding.EncodeToString([]byte(text))
-	base64Text = strings.ReplaceAll(base64Text, "1", "！")
-	base64Text = strings.ReplaceAll(base64Text, "3", "#")
-	base64Text = strings.ReplaceAll(base64Text, "4", "￥")
-	base64Text = strings.ReplaceAll(base64Text, "5", "%")
-	base64Text = strings.ReplaceAll(base64Text, "8", "*")
-	base64Text = strings.ReplaceAll(base64Text, "9", "（")
-	btText := []byte(base64Text)
-	btKey := []byte(key)
-	//补全字符
-	if len(btText) > len(btKey) {
-		for i := 0; len(btText) > len(btKey); i++ {
-			btKey = append(btKey, btText[0])
-		}
-	} else if len(btText) < len(btKey) {
-		for i := 0; len(btText) < len(btKey); i++ {
-			btText = append(btText, btKey[0])
-		}
-	}
-	if len(btText) != len(btKey) {
+func AesEncrypt(plainText, key string) string {
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
 		return ""
 	}
-	result := make([]byte, len(btText))
-	for i := range btText {
-		result[i] = btText[i] ^ btKey[i]
+
+	plainTextBytes := []byte(plainText)
+	cipherText := make([]byte, aes.BlockSize+len(plainTextBytes))
+	iv := cipherText[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return ""
 	}
-	return base64.StdEncoding.EncodeToString(result)
+
+	stream := cipher.NewCFBEncrypter(block, iv)
+	stream.XORKeyStream(cipherText[aes.BlockSize:], plainTextBytes)
+	text := base64.StdEncoding.EncodeToString(cipherText)
+
+	//替换base64特殊字符
+	text = strings.ReplaceAll(text, "/", "*")
+	text = strings.ReplaceAll(text, "==", "#")
+	text = strings.ReplaceAll(text, "=", "$")
+
+	return text
 }
 
-func EorDecode(ciphertext, key string) (string, error) {
-	btCiphertext, err := base64.StdEncoding.DecodeString(ciphertext)
+/**
+ * @description: aes解密
+ * @param {string} 待解密的文本
+ * @param {string} 密钥
+ * @return {string} 明文
+ */
+func AesDecrypt(cipherText, key string) string {
+	//替换base64特殊字符
+	cipherText = strings.ReplaceAll(cipherText, "*", "/")
+	cipherText = strings.ReplaceAll(cipherText, "$", "=")
+	cipherText = strings.ReplaceAll(cipherText, "#", "==")
+
+	cipherTextBytes, err := base64.StdEncoding.DecodeString(cipherText)
 	if err != nil {
-		return "", err
+		return ""
 	}
 
-	btKey := []byte(key)
-	// 补全字符
-	if len(btCiphertext) > len(btKey) {
-		for i := 0; len(btCiphertext) > len(btKey); i++ {
-			btKey = append(btKey, btCiphertext[0])
-		}
-	} else if len(btCiphertext) < len(btKey) {
-		for i := 0; len(btCiphertext) < len(btKey); i++ {
-			btCiphertext = append(btCiphertext, btKey[0])
-		}
-	}
-	if len(btCiphertext) != len(btKey) {
-		return "", fmt.Errorf("unequal lengths of ciphertext and key")
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		return ""
 	}
 
-	result := make([]byte, len(btCiphertext))
-	for i := range btCiphertext {
-		result[i] = btCiphertext[i] ^ btKey[i]
+	if len(cipherTextBytes) < aes.BlockSize {
+		return ""
 	}
 
-	// 反转替换
-	reversedBase64Text := string(result)
-	reversedBase64Text = strings.ReplaceAll(reversedBase64Text, "！", "1")
-	reversedBase64Text = strings.ReplaceAll(reversedBase64Text, "#", "3")
-	reversedBase64Text = strings.ReplaceAll(reversedBase64Text, "￥", "4")
-	reversedBase64Text = strings.ReplaceAll(reversedBase64Text, "%", "5")
-	reversedBase64Text = strings.ReplaceAll(reversedBase64Text, "*", "8")
-	reversedBase64Text = strings.ReplaceAll(reversedBase64Text, "（", "9")
+	iv := cipherTextBytes[:aes.BlockSize]
+	cipherTextBytes = cipherTextBytes[aes.BlockSize:]
 
-	return reversedBase64Text, nil
+	stream := cipher.NewCFBDecrypter(block, iv)
+	stream.XORKeyStream(cipherTextBytes, cipherTextBytes)
+
+	return string(cipherTextBytes)
 }

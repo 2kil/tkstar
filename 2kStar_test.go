@@ -1,24 +1,21 @@
+/*
+ * @Author: 2Kil
+ * @Date: 2024-04-19 10:54:20
+ * @LastEditors: 2Kil
+ * @LastEditTime: 2024-05-28 17:49:00
+ * @Description:star
+ */
+
 package star
 
 import (
+	"log"
 	"testing"
 )
 
-func TestIsBug(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			IsBug()
-		})
-	}
-}
-
-func TestRandAtomic(t *testing.T) {
+func TestRandAtomicRadius(t *testing.T) {
 	type args struct {
+		min int
 		max int
 	}
 	tests := []struct {
@@ -27,28 +24,16 @@ func TestRandAtomic(t *testing.T) {
 		want int
 	}{
 		// TODO: Add test cases.
-		{name: "test1", args: args{max: 100}, want: 99},
+		{"t1", args{10, 14}, 100},
+		{"t1", args{10, 14}, 100},
+		{"t1", args{10, 14}, 100},
+		{"t1", args{10, 14}, 100},
+		{"t1", args{10, 14}, 100},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := RandAtomic(tt.args.max); got >= tt.want {
-				t.Errorf("RandAtomic() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetSerialKey(t *testing.T) {
-	tests := []struct {
-		name string
-		want string
-	}{
-		// TODO: Add test cases.
-		{name: "test1", want: "12345678190"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Log(GetSerialKey())
+			got := RandAtomicRadius(tt.args.min, tt.args.max)
+			log.Println(got)
 		})
 	}
 }

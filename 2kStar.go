@@ -2,20 +2,15 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-05-27 23:06:45
+ * @LastEditTime: 2024-05-28 17:49:00
  * @Description:star
  */
 package star
 
 import (
-	"crypto/md5"
-	"fmt"
 	"log"
 	"math/rand"
-	"net"
 	"os"
-	"os/exec"
-	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -37,48 +32,26 @@ func RandAtomic(max int) int {
 }
 
 /**
- * @description: 获取设备硬件码
- * @return {string} 硬件码
+ * @description: 生成范围内的随机数
+ * @param {int} min 最小值
+ * @param {int} max 最大值
+ * @return {int} 随机数
  */
-func GetSerialKey() string {
-	// 获取本机的MAC地址
-	var mac string
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		mac = ""
-	} else {
-		mac = interfaces[0].HardwareAddr.String()
+func RandAtomicRadius(min, max int) int {
+	if max <= min {
+		return min
 	}
-
-	// 获取系统UUID
-	var uuid string
-	cmd := exec.Command("wmic", "csproduct", "get", "UUID")
-	uuidOut, err := cmd.Output()
-	if err != nil {
-		uuid = "FFFFFFFFF"
-	}
-	uuid = string(uuidOut)
-
-	// 获取硬盘串号
-	var diskSerial string
-	cmd = exec.Command("wmic", "diskdrive", "get", "SerialNumber")
-	diskSerialOut, err := cmd.Output()
-	if err != nil {
-		diskSerial = "6479_A771_20C0_1EFF"
-	}
-	diskSerial = string(diskSerialOut)
-
-	reg0 := strings.ToUpper(fmt.Sprintf("%x", md5.Sum([]byte(mac+uuid+diskSerial))))
-
-	// 简化设备码
-	return reg0[8:11] + reg0[2:3] + reg0[12:14]
+	var counter int64
+	rand.New(rand.NewSource(time.Now().UnixNano() + atomic.AddInt64(&counter, 1)))
+	randomNum := min + rand.Intn(max-min+1)
+	return randomNum
 }
 
 /**
  * @description: 错误检测
  * @param {error} err 错误信息
  * @param {string} errString 自定义错误提示
- * @return {*}
+ * @return {bool} 无错误true 有错误false
  */
 func CheckErr(err error, errString ...string) bool {
 	errString = append(errString, "Error")
@@ -97,7 +70,7 @@ func BuildTime() string {
 	// 获取当前程序的文件信息
 	fileInfo, err := os.Stat(os.Args[0])
 	if err != nil {
-		log.Fatal(err)
+		return "0.0.0.0"
 	}
 
 	// 获取修改时间
@@ -107,4 +80,24 @@ func BuildTime() string {
 	// 打印修改时间
 	log.Printf("Build Time:%s", buildTime)
 	return buildTime
+}
+
+/**
+ * @description: 切片去重,去空
+ * @param {[]string} 待处理的切片
+ * @return {[]string} 处理后的切片
+ */
+func RemoveDuplicates(s []string) []string {
+	m := make(map[string]bool)
+	var result []string
+	for _, item := range s {
+		if item == "" {
+			continue // 跳过空字符串
+		}
+		if _, ok := m[item]; !ok {
+			m[item] = true
+			result = append(result, item)
+		}
+	}
+	return result
 }
