@@ -2,10 +2,10 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-05-29 11:35:57
+ * @LastEditTime: 2024-05-29 12:41:28
  * @Description:tktar
  */
-package tktar
+package tkstar
 
 import (
 	"crypto/aes"
