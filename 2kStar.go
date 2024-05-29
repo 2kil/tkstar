@@ -2,21 +2,44 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-05-28 17:49:00
- * @Description:star
+ * @LastEditTime: 2024-05-29 11:35:57
+ * @Description:tktar
  */
-package star
+package tktar
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/md5"
+	crand "crypto/rand"
+	"encoding/base64"
+	"fmt"
+	"io"
 	"log"
 	"math/rand"
+	"net"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"time"
 )
 
-func IsBug() {
-	log.Println("The current mode is debug")
+/**
+ * @description: 判断当前环境是否为Debug模式
+ * @return {bool} true:Debug模式 false:Release模式
+ */
+func IsDebug() bool {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		return false
+	}
+	if strings.Contains(dir, "Temp") && strings.Contains(dir, "go-build") {
+		log.Println("The current mode is debug")
+		return true
+	}
+	return false
 }
 
 /**
@@ -87,7 +110,7 @@ func BuildTime() string {
  * @param {[]string} 待处理的切片
  * @return {[]string} 处理后的切片
  */
-func RemoveDuplicates(s []string) []string {
+func HelperRemoveDuplicates(s []string) []string {
 	m := make(map[string]bool)
 	var result []string
 	for _, item := range s {
@@ -100,4 +123,108 @@ func RemoveDuplicates(s []string) []string {
 		}
 	}
 	return result
+}
+
+/**
+ * @description: aes加密
+ * @param {string} 待加密的文本
+ * @param {string} 16,24,32密钥
+ * @return {string} 密文
+ */
+func TextAesEncrypt(plainText, key string) string {
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		return ""
+	}
+
+	plainTextBytes := []byte(plainText)
+	cipherText := make([]byte, aes.BlockSize+len(plainTextBytes))
+	iv := cipherText[:aes.BlockSize]
+	if _, err := io.ReadFull(crand.Reader, iv); err != nil {
+		return ""
+	}
+
+	stream := cipher.NewCFBEncrypter(block, iv)
+	stream.XORKeyStream(cipherText[aes.BlockSize:], plainTextBytes)
+	text := base64.StdEncoding.EncodeToString(cipherText)
+
+	//替换base64特殊字符
+	text = strings.ReplaceAll(text, "/", "*")
+	text = strings.ReplaceAll(text, "==", "#")
+	text = strings.ReplaceAll(text, "=", "$")
+
+	return text
+}
+
+/**
+ * @description: aes解密
+ * @param {string} 待解密的文本
+ * @param {string} 密钥
+ * @return {string} 明文
+ */
+func TextAesDecrypt(cipherText, key string) string {
+	//替换base64特殊字符
+	cipherText = strings.ReplaceAll(cipherText, "*", "/")
+	cipherText = strings.ReplaceAll(cipherText, "$", "=")
+	cipherText = strings.ReplaceAll(cipherText, "#", "==")
+
+	cipherTextBytes, err := base64.StdEncoding.DecodeString(cipherText)
+	if err != nil {
+		return ""
+	}
+
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		return ""
+	}
+
+	if len(cipherTextBytes) < aes.BlockSize {
+		return ""
+	}
+
+	iv := cipherTextBytes[:aes.BlockSize]
+	cipherTextBytes = cipherTextBytes[aes.BlockSize:]
+
+	stream := cipher.NewCFBDecrypter(block, iv)
+	stream.XORKeyStream(cipherTextBytes, cipherTextBytes)
+
+	return string(cipherTextBytes)
+}
+
+/**
+ * @description: 获取设备硬件码
+ * @return {string} 硬件码
+ */
+func SysGetSerialKey() string {
+	// 获取本机的MAC地址
+	var mac string
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		mac = ""
+	} else {
+		mac = interfaces[0].HardwareAddr.String()
+	}
+
+	// 获取系统UUID
+	var uuid string
+	cmd := exec.Command("wmic", "csproduct", "get", "UUID")
+	uuidOut, err := cmd.Output()
+	if err != nil {
+		uuid = "FFFFFFFFF"
+	}
+	uuid = string(uuidOut)
+
+	// 获取硬盘串号
+	var diskSerial string
+	cmd = exec.Command("wmic", "diskdrive", "get", "SerialNumber")
+	diskSerialOut, err := cmd.Output()
+	if err != nil {
+		diskSerial = "6479_A771_20C0_1EFF"
+	}
+	diskSerial = string(diskSerialOut)
+
+	reg0 := strings.ToUpper(fmt.Sprintf("%x", md5.Sum([]byte(mac+uuid+diskSerial))))
+
+	// 简化设备码
+	return reg0[8:11] + reg0[2:3] + reg0[12:14]
 }
