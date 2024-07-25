@@ -2,7 +2,7 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-06-26 15:25:28
+ * @LastEditTime: 2024-07-24 18:09:16
  * @Description:tktar
  */
 package tkstar
@@ -283,16 +283,17 @@ func NetCurl(curlBash string) (int, string) {
  * @return {*} 请求方法,请求地址,请求头,请求体,错误信息
  */
 func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, error) {
+	method := "GET"
 	// 提取URL
 	urlRe := regexp.MustCompile(`curl '([^']+)'`)
 	urlMatch := urlRe.FindStringSubmatch(curlCmd)
 	if len(urlMatch) != 2 {
-		return "GET", "", nil, nil, fmt.Errorf("failed to find URL in curl command")
+		return method, "", nil, nil, fmt.Errorf("failed to find URL in curl command")
 	}
 	rawURL := urlMatch[1]
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
-		return "GET", "", nil, nil, err
+		return method, "", nil, nil, err
 	}
 
 	// 提取HTTP头
@@ -307,14 +308,21 @@ func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, erro
 		headers.Set(key, value)
 	}
 
-	// 提取POST数据体
+	//提取请求方法
+	methodRe := regexp.MustCompile(`--request ([A-Za-z]+)`)
+	methodMatch := methodRe.FindStringSubmatch(curlCmd)
+	if len(methodMatch) >= 2 {
+		//获取到请求方法
+		method = methodMatch[1]
+	}
+
+	// 提取提交数据体
 	dataRe := regexp.MustCompile(`--data-raw '([^']+)'`)
 	dataMatch := dataRe.FindStringSubmatch(curlCmd)
-	if len(dataMatch) != 2 {
-		// 如果没有找到--data-raw，则假设是一个GET请求，并返回空的数据体
-		return "GET", parsedURL.String(), headers, nil, nil
+	if len(dataMatch) >= 2 {
+		rawData := []byte(dataMatch[1])
+		return method, parsedURL.String(), headers, rawData, nil
 	}
-	rawData := []byte(dataMatch[1])
 
-	return "POST", parsedURL.String(), headers, rawData, nil
+	return method, parsedURL.String(), headers, nil, nil
 }
