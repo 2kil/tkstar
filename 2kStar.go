@@ -2,7 +2,7 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-07-24 18:09:16
+ * @LastEditTime: 2024-08-22 16:01:10
  * @Description:tktar
  */
 package tkstar
@@ -261,6 +261,67 @@ func NetCurl(curlBash string) (int, string) {
 
 	// 发送HTTP请求
 	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("Error sending HTTP request:", err)
+		return 0, ""
+	}
+	defer resp.Body.Close()
+
+	// 读取并打印响应体
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Error reading response body:", err)
+		return 0, ""
+	}
+	return resp.StatusCode, string(body)
+}
+
+/**
+ * @description:go的curl实现(走代理)
+ * @param {string} cUrl(bash)格式的请求命令
+ * @return {*} 响应体
+ */
+func NetProxyCurl(proxy, curlBash string) (int, string) {
+	// 解析curl命令
+	method, urll, headers, data, err := NetParseCurlComd(curlBash)
+	if err != nil {
+		fmt.Println("Error parsing curl command:", err)
+		return 0, ""
+	}
+
+	// 创建一个HTTP POST请求
+	req, err := http.NewRequest(method, urll, bytes.NewBuffer(data))
+	if err != nil {
+		fmt.Println("Error creating HTTP request:", err)
+		return 0, ""
+	}
+
+	// 设置HTTP头
+	req.Header = headers
+
+	// 发送HTTP请求
+	var client *http.Client
+	if proxy != "" {
+		// 解析代理URL
+		proxyURL, err := url.Parse(proxy)
+		if err != nil {
+			log.Fatalf("Failed to parse proxy URL: %v", err)
+		}
+
+		// 创建一个http.Transport，设置Proxy字段为之前解析的URL
+		transport := &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		}
+
+		// 创建一个http.Client，使用上面配置的Transport
+		client = &http.Client{
+			Transport: transport,
+		}
+	}else{
+		client = &http.Client{}
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Println("Error sending HTTP request:", err)
