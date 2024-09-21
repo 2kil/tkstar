@@ -394,14 +394,14 @@ func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, erro
  * @param {string} logFIle
  * @return {*}
  */
-func LogFile(logFIle string) error {
+func LogFile(logFIle string) (*os.File, error) {
 	// 创建一个文件用于写入日志
 	logFile, err := os.OpenFile(logFIle, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Println("error opening file: %v", err)
-		return err
+		return logFile, err
 	}
-	defer logFile.Close()
+	// defer logFile.Close()
 	log.SetOutput(logFile)
-	return nil
+	return logFile, nil
 }
