@@ -2,7 +2,7 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-08-22 16:01:10
+ * @LastEditTime: 2024-09-21 23:04:07
  * @Description:tktar
  */
 package tkstar
@@ -16,7 +16,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net"
 	"net/http"
@@ -28,6 +27,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 /**
@@ -318,7 +319,7 @@ func NetProxyCurl(proxy, curlBash string) (int, string) {
 		client = &http.Client{
 			Transport: transport,
 		}
-	}else{
+	} else {
 		client = &http.Client{}
 	}
 
@@ -386,4 +387,21 @@ func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, erro
 	}
 
 	return method, parsedURL.String(), headers, nil, nil
+}
+
+/**
+ * @description: 记录日志到文件,添加引用[log "github.com/sirupsen/logrus"]
+ * @param {string} logFIle
+ * @return {*}
+ */
+func LogFile(logFIle string) error {
+	// 创建一个文件用于写入日志
+	logFile, err := os.OpenFile(logFIle, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Println("error opening file: %v", err)
+		return err
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+	return nil
 }
