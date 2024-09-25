@@ -2,7 +2,7 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-09-25 13:45:58
+ * @LastEditTime: 2024-09-25 14:05:26
  * @Description:tktar
  */
 package tkstar
@@ -402,10 +402,10 @@ func LogFile(logFIle string) (*logger.Logger, error) {
 		logger.Fatalf("Failed to open log file: %v", err)
 		return nil, err
 	}
-	defer logFile.Close()
+	// defer logFile.Close()
 
 	loger := logger.Init(logFIle, false, true, logFile)
-	defer loger.Close()
+	// defer loger.Close()
 
 	return loger, nil
 }
