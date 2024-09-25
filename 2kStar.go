@@ -2,7 +2,7 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-09-21 23:04:07
+ * @LastEditTime: 2024-09-25 13:45:58
  * @Description:tktar
  */
 package tkstar
@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/logger"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -390,18 +391,21 @@ func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, erro
 }
 
 /**
- * @description: 记录日志到文件,添加引用[log "github.com/sirupsen/logrus"]
+ * @description: 记录日志到文件&系统事件
  * @param {string} logFIle
  * @return {*}
  */
-func LogFile(logFIle string) (*os.File, error) {
+func LogFile(logFIle string) (*logger.Logger, error) {
 	// 创建一个文件用于写入日志
-	logFile, err := os.OpenFile(logFIle, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(logFIle+".log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
 	if err != nil {
-		log.Println("error opening file: %v", err)
-		return logFile, err
+		logger.Fatalf("Failed to open log file: %v", err)
+		return nil, err
 	}
-	// defer logFile.Close()
-	log.SetOutput(logFile)
-	return logFile, nil
+	defer logFile.Close()
+
+	loger := logger.Init(logFIle, false, true, logFile)
+	defer loger.Close()
+
+	return loger, nil
 }
