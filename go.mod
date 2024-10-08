@@ -1,6 +1,6 @@
 module github.com/2Kil/tkstar
 
-go 1.22.2
+go 1.20
 
 require (
 	github.com/google/logger v1.1.1
