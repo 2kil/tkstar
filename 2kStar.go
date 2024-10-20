@@ -2,7 +2,7 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-09-25 14:05:26
+ * @LastEditTime: 2024-10-20 17:02:20
  * @Description:tktar
  */
 package tkstar
@@ -16,6 +16,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net"
 	"net/http"
@@ -29,7 +30,6 @@ import (
 	"time"
 
 	"github.com/google/logger"
-	log "github.com/sirupsen/logrus"
 )
 
 /**
@@ -393,9 +393,10 @@ func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, erro
 /**
  * @description: 记录日志到文件&系统事件
  * @param {string} logFIle
+ * @param {bool} systemLog true写入系统事件
  * @return {*}
  */
-func LogFile(logFIle string) (*logger.Logger, error) {
+func LogFile(logFIle string,systemLog string) (*logger.Logger, error) {
 	// 创建一个文件用于写入日志
 	logFile, err := os.OpenFile(logFIle+".log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
 	if err != nil {
@@ -404,7 +405,7 @@ func LogFile(logFIle string) (*logger.Logger, error) {
 	}
 	// defer logFile.Close()
 
-	loger := logger.Init(logFIle, false, true, logFile)
+	loger := logger.Init(logFIle, true, true, logFile)
 	// defer loger.Close()
 
 	return loger, nil
