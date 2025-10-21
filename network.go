@@ -17,12 +17,12 @@ import (
 	"regexp"
 )
 
-//----------------------------------------------
+// ----------------------------------------------
 // @description: go的curl实现(走代理)
 // @param {*} proxy 代理地址
 // @param {string} curlBash
 // @return {*}
-//---------------------------------------------- 
+// ----------------------------------------------
 func NetProxyCurl(proxy, curlBash string) (int, string) {
 	// 解析curl命令
 	method, urll, headers, data, err := NetParseCurlComd(curlBash)
@@ -79,12 +79,11 @@ func NetProxyCurl(proxy, curlBash string) (int, string) {
 	return resp.StatusCode, string(body)
 }
 
-
-//----------------------------------------------
+// ----------------------------------------------
 // @description: 解析curl命令
 // @param {string} curlCmd
 // @return {*} 请求方法,请求地址,请求头,请求体,错误信息
-//---------------------------------------------- 
+// ----------------------------------------------
 func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, error) {
 	method := "GET"
 	// 提取URL
@@ -130,12 +129,11 @@ func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, erro
 	return method, parsedURL.String(), headers, nil, nil
 }
 
-
-//----------------------------------------------
+// ----------------------------------------------
 // @description: go的curl实现
 // @param {string} curlBash
 // @return {*} 响应体
-//---------------------------------------------- 
+// ----------------------------------------------
 func NetCurl(curlBash string) (int, string) {
 	// 解析curl命令
 	method, url, headers, data, err := NetParseCurlComd(curlBash)

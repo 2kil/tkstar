@@ -2,7 +2,7 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2024-10-20 17:02:20
+ * @LastEditTime: 2025-10-21 11:24:39
  * @Description:tktar
  */
 package tkstar
@@ -204,7 +204,17 @@ func SysGetSerialKey() string {
 	if err != nil {
 		mac = ""
 	} else {
-		mac = interfaces[0].HardwareAddr.String()
+		// 遍历所有网络接口，寻找一个合适的MAC地址
+		for _, iface := range interfaces {
+			// 排除回环接口 (loopback interface, e.g., "lo" or "Loopback Pseudo-Interface 1")
+			// 排除未启用的接口 (interface not up)
+			// 排除没有硬件地址的接口 (e.g., some virtual interfaces or software-only interfaces)
+			if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 || len(iface.HardwareAddr) == 0 {
+				continue
+			}
+			mac = iface.HardwareAddr.String()
+			break // 找到第一个符合条件的MAC地址后即停止
+		}
 	}
 
 	// 获取系统UUID
@@ -237,7 +247,7 @@ func SysGetSerialKey() string {
  * @param {bool} systemLog true写入系统事件
  * @return {*}
  */
-func LogFile(logFIle string,systemLog string) (*logger.Logger, error) {
+func LogFile(logFIle string, systemLog string) (*logger.Logger, error) {
 	// 创建一个文件用于写入日志
 	logFile, err := os.OpenFile(logFIle+".log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
 	if err != nil {
