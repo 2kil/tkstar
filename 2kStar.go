@@ -2,7 +2,7 @@
  * @Author: 2Kil
  * @Date: 2024-04-19 10:54:20
  * @LastEditors: 2Kil
- * @LastEditTime: 2025-10-21 11:24:39
+ * @LastEditTime: 2025-11-04 15:21:14
  * @Description:tktar
  */
 package tkstar
@@ -222,20 +222,33 @@ func SysGetSerialKey() string {
 	cmd := exec.Command("wmic", "csproduct", "get", "UUID")
 	uuidOut, err := cmd.Output()
 	if err != nil {
-		uuid = "FFFFFFFFF"
+		uuid = "BC2B8100-FD76-11EE-BE99-DA3F32D12700"
 	}
 	uuid = string(uuidOut)
 
 	// 获取硬盘串号
 	var diskSerial string
-	cmd = exec.Command("wmic", "diskdrive", "get", "SerialNumber")
+	// 仅获取主硬盘(Index=0)的序列号，避免U盘等外部设备造成影响
+	cmd = exec.Command("wmic", "diskdrive", "where", "Index=0", "get", "SerialNumber")
 	diskSerialOut, err := cmd.Output()
 	if err != nil {
 		diskSerial = "6479_A771_20C0_1EFF"
+	} else {
+		// 清理wmic命令输出，去除"SerialNumber"表头和多余的空格换行
+		diskSerial = string(diskSerialOut)
+		diskSerial = strings.Replace(diskSerial, "SerialNumber", "", 1)
+		diskSerial = strings.TrimSpace(diskSerial)
 	}
-	diskSerial = string(diskSerialOut)
 
 	reg0 := strings.ToUpper(fmt.Sprintf("%x", md5.Sum([]byte(mac+uuid+diskSerial))))
+
+	//替换掉易混淆的字符
+	reg0 = strings.ReplaceAll(reg0, "o", "0")
+	reg0 = strings.ReplaceAll(reg0, "O", "0")
+	reg0 = strings.ReplaceAll(reg0, "l", "1")
+	reg0 = strings.ReplaceAll(reg0, "L", "1")
+	reg0 = strings.ReplaceAll(reg0, "i", "2")
+	reg0 = strings.ReplaceAll(reg0, "I", "2")
 
 	// 简化设备码
 	return reg0[8:11] + reg0[2:3] + reg0[12:14]
