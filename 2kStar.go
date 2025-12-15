@@ -8,13 +8,8 @@
 package tkstar
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/md5"
-	crand "crypto/rand"
-	"encoding/base64"
 	"fmt"
-	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -125,72 +120,6 @@ func HelperRemoveDuplicates(s []string) []string {
 		}
 	}
 	return result
-}
-
-/**
- * @description: aes加密
- * @param {string} 待加密的文本
- * @param {string} 16,24,32密钥
- * @return {string} 密文
- */
-func TextAesEncrypt(plainText, key string) string {
-	block, err := aes.NewCipher([]byte(key))
-	if err != nil {
-		return ""
-	}
-
-	plainTextBytes := []byte(plainText)
-	cipherText := make([]byte, aes.BlockSize+len(plainTextBytes))
-	iv := cipherText[:aes.BlockSize]
-	if _, err := io.ReadFull(crand.Reader, iv); err != nil {
-		return ""
-	}
-
-	stream := cipher.NewCFBEncrypter(block, iv)
-	stream.XORKeyStream(cipherText[aes.BlockSize:], plainTextBytes)
-	text := base64.StdEncoding.EncodeToString(cipherText)
-
-	//替换base64特殊字符
-	text = strings.ReplaceAll(text, "/", "*")
-	text = strings.ReplaceAll(text, "==", "#")
-	text = strings.ReplaceAll(text, "=", "$")
-
-	return text
-}
-
-/**
- * @description: aes解密
- * @param {string} 待解密的文本
- * @param {string} 密钥
- * @return {string} 明文
- */
-func TextAesDecrypt(cipherText, key string) string {
-	//替换base64特殊字符
-	cipherText = strings.ReplaceAll(cipherText, "*", "/")
-	cipherText = strings.ReplaceAll(cipherText, "$", "=")
-	cipherText = strings.ReplaceAll(cipherText, "#", "==")
-
-	cipherTextBytes, err := base64.StdEncoding.DecodeString(cipherText)
-	if err != nil {
-		return ""
-	}
-
-	block, err := aes.NewCipher([]byte(key))
-	if err != nil {
-		return ""
-	}
-
-	if len(cipherTextBytes) < aes.BlockSize {
-		return ""
-	}
-
-	iv := cipherTextBytes[:aes.BlockSize]
-	cipherTextBytes = cipherTextBytes[aes.BlockSize:]
-
-	stream := cipher.NewCFBDecrypter(block, iv)
-	stream.XORKeyStream(cipherTextBytes, cipherTextBytes)
-
-	return string(cipherTextBytes)
 }
 
 /**

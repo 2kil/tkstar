@@ -1,10 +1,10 @@
-//----------------------------------------------
-// @Author: 2Kil
-// @Date: 2025-09-28 13:43:36
-// @LastEditors: 2Kil
-// @LastEditTime: 2025-09-28 13:43:54
-// @Description: 结构体定义
-//----------------------------------------------
+/*
+ * @Author: 2Kil
+ * @Date: 2025-09-28 11:10:39
+ * @LastEditors: 2Kil
+ * @LastEditTime: 2025-12-15 10:20:36
+ * @Description:结构体定义
+ */
 
 package tkstar
 
