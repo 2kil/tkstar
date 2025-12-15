@@ -2,11 +2,11 @@
  * @Author: 2Kil
  * @Date: 2025-09-28 11:10:39
  * @LastEditors: 2Kil
- * @LastEditTime: 2025-12-15 02:35:53
+ * @LastEditTime: 2025-12-15 11:45:55
  * @Description:加密解密及文本处理相关
  */
 
-package tkstar
+package text
 
 import (
 	crand "crypto/rand"
@@ -20,6 +20,23 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 )
+
+//密钥对
+type KeyPair struct {
+	PublicKey  *PublicKey
+	PrivateKey *PrivateKey
+}
+
+type PublicKey struct {
+	N *big.Int // 大素数乘积
+	E *big.Int // 加密指数
+}
+
+type PrivateKey struct {
+	N *big.Int // 同公钥的N
+	D *big.Int // 解密指数
+}
+
 
 // TextGetKeyPair 生成指定位数的RSA密钥对。
 func TextGetKeyPair(bits int) (*KeyPair, error) {

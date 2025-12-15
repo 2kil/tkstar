@@ -2,10 +2,10 @@
  * @Author: 2Kil
  * @Date: 2025-09-28 13:46:43
  * @LastEditors: 2Kil
- * @LastEditTime: 2025-12-15 10:24:52
+ * @LastEditTime: 2025-12-15 11:44:30
  * @Description:网络相关
  */
-package tkstar
+package network
 
 import (
 	"bytes"
