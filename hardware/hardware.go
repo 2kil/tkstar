@@ -2,10 +2,10 @@
  * @Author: 2Kil
  * @Date: 2025-12-15 11:47:25
  * @LastEditors: 2Kil
- * @LastEditTime: 2025-12-15 11:50:20
+ * @LastEditTime: 2026-01-28 12:24:06
  * @Description: 硬件相关
  */
- 
+
 package hardware
 
 import (
@@ -44,6 +44,7 @@ func SysGetSerialKey() string {
 	var uuid string
 	// 注意：wmic 在较新的 Windows 版本中可能被废弃，但在旧系统中可用
 	cmd := exec.Command("wmic", "csproduct", "get", "UUID")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏命令窗口
 	uuidOut, err := cmd.Output()
 	if err != nil {
 		uuid = "BC2B8100-FD76-11EE-BE99-DA3F32D12700" // 默认值
@@ -54,6 +55,7 @@ func SysGetSerialKey() string {
 	// 3. 获取硬盘串号 (主硬盘 Index=0)
 	var diskSerial string
 	cmd = exec.Command("wmic", "diskdrive", "where", "Index=0", "get", "SerialNumber")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏命令窗口
 	diskSerialOut, err := cmd.Output()
 	if err != nil {
 		diskSerial = "6479_A771_20C0_1EFF" // 默认值
