@@ -45,6 +45,13 @@ var (
 	absPath, _   = filepath.Abs(relativePath)
 )
 
+func reportStatus(err error) {
+	select {
+	case StatusChan <- err:
+	default:
+	}
+}
+
 // GetRes 获取响应头信息
 // 获取指定路径的响应头信息(大小写敏感)
 func GetRes(key string) string {
@@ -125,6 +132,8 @@ func Stop() {
 	if browserCancel != nil {
 		browserCancel()
 	}
+	browserCtx = nil
+	browserCancel = nil
 }
 
 // GetCookies 获取当前页面的所有 Cookie 并返回 Map 格式 [Name]Value
@@ -207,7 +216,7 @@ func Run(urlPath string, msedgePath ...string) {
 		)
 
 		err := commonRun(opts, urlPath)
-		StatusChan <- err
+		reportStatus(err)
 	}()
 }
 
@@ -235,7 +244,7 @@ func RunCli(urlPath string, msedgePath ...string) {
 		)
 
 		err := commonRun(opts, urlPath)
-		StatusChan <- err
+		reportStatus(err)
 	}()
 }
 
@@ -315,7 +324,7 @@ func commonRun(opts []chromedp.ExecAllocatorOption, urlPath string) error {
 	})
 
 	// 初始导航到默认页面（比如抖音）
-	if err := chromedp.Run(ctx, network.Enable(), chromedp.Navigate("https://www.douyin.com/?recommend=1")); err != nil {
+	if err := chromedp.Run(ctx, network.Enable(), chromedp.Navigate(urlPath)); err != nil {
 		return err
 	}
 

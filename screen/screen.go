@@ -141,6 +141,8 @@ func ScreenUpdateText(text string) {
 }
 
 func ScreenGetText() string {
+	mu.Lock()
+	defer mu.Unlock()
 	return displayText
 }
 

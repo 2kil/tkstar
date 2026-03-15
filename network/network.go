@@ -13,7 +13,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 )
 
@@ -78,66 +77,66 @@ func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, erro
 	method := "GET"
 	headers := make(http.Header)
 	var rawData []byte
+	tokens, err := splitCurlCommand(curlCmd)
+	if err != nil {
+		return "", "", nil, nil, err
+	}
+	if len(tokens) == 0 || tokens[0] != "curl" {
+		return "", "", nil, nil, fmt.Errorf("无效的curl命令")
+	}
 
-	// 提取URL
-	// 支持 'url', "url", 和无引号的url
-	urlRe := regexp.MustCompile(`curl\s+(?:'([^']*)'|"([^"]*)"|([^\s-]+))`)
-	urlMatch := urlRe.FindStringSubmatch(curlCmd)
-	if len(urlMatch) < 2 {
+	var rawURL string
+	explicitMethod := false
+
+	for i := 1; i < len(tokens); i++ {
+		token := tokens[i]
+		switch token {
+		case "-X", "--request":
+			if i+1 >= len(tokens) {
+				return "", "", nil, nil, fmt.Errorf("%s 缺少请求方法", token)
+			}
+			method = strings.ToUpper(tokens[i+1])
+			explicitMethod = true
+			i++
+		case "-H", "--header":
+			if i+1 >= len(tokens) {
+				return "", "", nil, nil, fmt.Errorf("%s 缺少请求头内容", token)
+			}
+			parts := strings.SplitN(tokens[i+1], ":", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				value := strings.TrimSpace(parts[1])
+				if key != "" {
+					headers.Set(key, value)
+				}
+			}
+			i++
+		case "--data", "--data-raw", "-d":
+			if i+1 >= len(tokens) {
+				return "", "", nil, nil, fmt.Errorf("%s 缺少请求体内容", token)
+			}
+			rawData = []byte(tokens[i+1])
+			if !explicitMethod {
+				method = "POST"
+			}
+			i++
+		default:
+			if strings.HasPrefix(token, "-") {
+				continue
+			}
+			if rawURL == "" {
+				rawURL = token
+			}
+		}
+	}
+
+	if rawURL == "" {
 		return "", "", nil, nil, fmt.Errorf("在curl命令中未找到URL")
-	}
-	rawURL := urlMatch[1]
-	if rawURL == "" {
-		rawURL = urlMatch[2]
-	}
-	if rawURL == "" {
-		rawURL = urlMatch[3]
 	}
 
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return "", "", nil, nil, err
-	}
-
-	// 提取HTTP头
-	// 支持 -H 或 --header, 以及 'key: value' 或 "key: value"
-	headerRe := regexp.MustCompile(`(?:-H|--header)\s+'([^']*)'|"(.*?)"`)
-	matches := headerRe.FindAllStringSubmatch(curlCmd, -1)
-	for _, match := range matches {
-		headerStr := match[1]
-		if headerStr == "" && len(match) > 2 {
-			headerStr = match[2]
-		}
-		parts := strings.SplitN(headerStr, ":", 2)
-		if len(parts) == 2 {
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			headers.Set(key, value)
-		}
-	}
-
-	//提取请求方法
-	// 支持 -X 或 --request
-	methodRe := regexp.MustCompile(`(?:-X|--request)\s+([A-Z]+)`)
-	methodMatch := methodRe.FindStringSubmatch(curlCmd)
-	if len(methodMatch) >= 2 {
-		method = methodMatch[1]
-	}
-
-	// 提取提交数据体
-	// 支持 --data-raw 或 --data, 以及 'data' 或 "data"
-	dataRe := regexp.MustCompile(`(?:--data-raw|--data)\s+'([^']*)'|"(.*?)"`)
-	dataMatch := dataRe.FindStringSubmatch(curlCmd)
-	if len(dataMatch) >= 2 {
-		dataStr := dataMatch[1]
-		if dataStr == "" && len(dataMatch) > 2 {
-			dataStr = dataMatch[2]
-		}
-		rawData = []byte(dataStr)
-		// 如果有数据体，但未指定方法，通常默认为POST
-		if len(methodMatch) == 0 {
-			method = "POST"
-		}
 	}
 
 	return method, parsedURL.String(), headers, rawData, nil
@@ -175,4 +174,45 @@ func NetCurl(curlBash string) (int, string, error) {
 		return 0, "", fmt.Errorf("读取响应体时出错: %w", err)
 	}
 	return resp.StatusCode, string(body), nil
+}
+
+func splitCurlCommand(cmd string) ([]string, error) {
+	var tokens []string
+	var current strings.Builder
+	inSingle := false
+	inDouble := false
+	escaped := false
+
+	flush := func() {
+		if current.Len() == 0 {
+			return
+		}
+		tokens = append(tokens, current.String())
+		current.Reset()
+	}
+
+	for _, r := range cmd {
+		switch {
+		case escaped:
+			current.WriteRune(r)
+			escaped = false
+		case r == '\\' && !inSingle:
+			escaped = true
+		case r == '\'' && !inDouble:
+			inSingle = !inSingle
+		case r == '"' && !inSingle:
+			inDouble = !inDouble
+		case (r == ' ' || r == '\t' || r == '\n' || r == '\r') && !inSingle && !inDouble:
+			flush()
+		default:
+			current.WriteRune(r)
+		}
+	}
+
+	if escaped || inSingle || inDouble {
+		return nil, fmt.Errorf("curl命令引号或转义不完整")
+	}
+
+	flush()
+	return tokens, nil
 }

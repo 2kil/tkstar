@@ -1,158 +1,875 @@
-# tkstar 工具包
+# tkstar
 
-本项目包含 `tkstar`, `screen`, `hardware`, `network`, `text`, `authorization` 等包，提供了一系列通用工具函数、Windows 屏幕覆盖显示、硬件信息获取、网络请求、加密解密及授权验证功能。
+`tkstar` 是一个 Go 工具包集合，包含以下能力：
 
-## 目录
+- `tkstar`：通用辅助函数
+- `authorization`：远程授权校验
+- `network`：从 curl 字符串发起请求
+- `text`：RSA/AES 与文本处理
+- `screen`：Windows 屏幕悬浮文本
+- `hardware`：Windows 硬件和按键检测
+- `edge`：基于 chromedp 的 Edge 浏览器控制
 
-- tkstar 包
-- screen 包
-- hardware 包
-- network 包
-- text 包
-- authorization 包
+## 安装
+
+```bash
+go get github.com/2Kil/tkstar
+```
+
+## 包说明
+
+- `screen`、`hardware`、`edge` 依赖 Windows API，仅适合 Windows 环境。
+- `screen.ScreenInit()` 会进入消息循环，必须放在 goroutine 中或主线程最后执行。
+- `edge` 包依赖本机安装 Microsoft Edge。
+- `authorization` 依赖远程二维码页面格式，示例中的地址和密码请替换为实际值。
 
 ## tkstar 包
 
-`tkstar` 包提供了一组常用的 Go 语言工具函数，涵盖日志、随机数、文件时间和错误处理等功能。
+导入：
 
-### 工具函数
+```go
+import "github.com/2Kil/tkstar"
+```
 
-#### `func IsDebug() bool`
-判断当前运行环境是否为 Debug 模式。
-- **原理**：检查可执行文件路径中是否包含 `Temp` 和 `go-build`（通常是 `go run` 生成的临时路径特征）。
-- **返回**：`true` (Debug模式) / `false` (Release模式)。
+### `func IsDebug() bool`
 
-#### `func RandAtomic(max int) int`
-生成 `[0, max)` 范围内的随机整数。
+判断当前是否接近 `go run` 的临时构建环境。
 
-#### `func RandAtomicRadius(min, max int) int`
-生成 `[min, max]` 范围内的随机整数（包含边界值）。
+```go
+package main
 
-#### `func CheckErr(err error, errString ...string) bool`
-错误检测辅助函数。
-- **功能**：如果 `err` 不为 `nil`，打印错误日志并返回 `false`；否则返回 `true`。
-- **参数**：`errString` 可选参数，用于在日志中添加自定义错误前缀。
+import (
+	"fmt"
 
-#### `func BuildTime() string`
-获取可执行文件的最后修改时间。
-- **注意**：这不是编译时的静态时间戳，而是运行时获取的文件最后写入时间。
-- **返回**：格式为 `06.0102.1504` 的时间字符串。
+	"github.com/2Kil/tkstar"
+)
 
-#### `func HelperRemoveDuplicates(s []string) []string`
-对字符串切片进行去重和去空处理。
-- **功能**：移除切片中的空字符串 `""` 和重复的元素，返回新的切片。
+func main() {
+	fmt.Println("debug:", tkstar.IsDebug())
+}
+```
 
-#### `func LogFile(logFileName string, systemLog bool) (*logger.Logger, error)`
-初始化日志系统。
-- **功能**：创建一个写入文件的 Logger 实例。
-- **参数**：`logFileName` (日志文件名前缀，不含 .log), `systemLog` (是否同时写入系统事件日志)。
-- **返回**：`*logger.Logger` 实例指针和错误信息。
+### `func RandAtomic(max int) int`
 
----
+返回 `[0, max)` 的随机整数。
 
-## screen 包
+```go
+package main
 
-`screen` 包用于在 Windows 系统上创建一个透明、置顶、无边框的覆盖窗口，通常用于在屏幕底部显示状态或文本信息。
+import (
+	"fmt"
 
-### 核心函数
+	"github.com/2Kil/tkstar"
+)
 
-#### `func ScreenInit()`
-初始化并运行状态窗口。
-- **功能**：注册窗口类，创建透明分层窗口（置顶、无任务栏图标），并启动 Windows 消息循环。
-- **注意**：该函数包含死循环（消息循环），并且会锁定当前 OS 线程 (`runtime.LockOSThread`)。**必须**在单独的 Goroutine 或主线程末尾运行，否则会阻塞后续代码执行。
+func main() {
+	n := tkstar.RandAtomic(10)
+	fmt.Println(n)
+}
+```
 
-#### `func ScreenUpdateText(text string)`
-更新屏幕上显示的文本内容并触发重绘。
-- **线程安全**：使用了互斥锁，可以在任意 Goroutine 中安全调用。
-- **参数**：`text` - 需要显示的字符串内容。
+### `func RandAtomicRadius(min, max int) int`
 
-#### `func ScreenGetText() string`
-获取当前屏幕上正在显示的文本内容。
+返回 `[min, max]` 的随机整数。
 
----
+```go
+package main
 
-## hardware 包
+import (
+	"fmt"
 
-`hardware` 包提供硬件信息获取和键盘状态检测功能（Windows）。
+	"github.com/2Kil/tkstar"
+)
 
-### 核心函数
+func main() {
+	n := tkstar.RandAtomicRadius(5, 12)
+	fmt.Println(n)
+}
+```
 
-#### `func SysGetSerialKey() string`
-获取设备硬件特征码。
-- **原理**：结合 MAC 地址、系统 UUID 和硬盘序列号生成唯一的简短机器码。
-- **返回**：经过混淆处理的机器码字符串。
+### `func CheckErr(err error, errString ...string) bool`
 
-#### `func KeyIsPress(keyName string) bool`
-判断指定按键是否处于按下状态。
-- **参数**：`keyName` - 按键名称（如 "A", "ENTER", "F1", "CTRL" 等，不区分大小写）。
-- **原理**：调用 Windows API `GetAsyncKeyState`。
+统一打印错误并返回是否成功。
 
----
+```go
+package main
 
-## network 包
+import (
+	"errors"
+	"fmt"
 
-`network` 包提供网络请求相关功能，支持解析 curl 命令字符串发送请求。
+	"github.com/2Kil/tkstar"
+)
 
-### 核心函数
+func main() {
+	ok := tkstar.CheckErr(errors.New("open failed"), "load config")
+	fmt.Println("ok:", ok)
+}
+```
 
-#### `func NetProxyCurl(proxy, curlBash string) (int, string, error)`
-使用指定的代理执行 curl 命令字符串。
-- **参数**：`proxy` (代理地址), `curlBash` (curl 命令字符串)。
-- **返回**：HTTP状态码, 响应体, 错误信息。
+### `func BuildTime() string`
 
-#### `func NetCurl(curlBash string) (int, string, error)`
-执行 curl 命令字符串（不使用代理）。
-- **功能**：`NetProxyCurl` 的简化版。
+返回当前可执行文件最后修改时间。
 
-#### `func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, error)`
-解析 curl 命令字符串。
-- **功能**：提取请求方法、URL、请求头和请求体。支持多种引号格式。
+```go
+package main
 
----
+import (
+	"fmt"
 
-## text 包
+	"github.com/2Kil/tkstar"
+)
 
-`text` 包提供加密解密（RSA, AES）及文本处理功能。
+func main() {
+	fmt.Println("build time:", tkstar.BuildTime())
+}
+```
 
-### 核心函数
+### `func HelperRemoveDuplicates(s []string) []string`
 
-#### `func TextGetKeyPair(bits int) (*KeyPair, error)`
-生成指定位数的 RSA 密钥对。
+去重并移除空字符串。
 
-#### `func TextEncrypt(pub *PublicKey, plaintext []byte) ([]byte, error)`
-使用 RSA 公钥对数据进行加密。
+```go
+package main
 
-#### `func TextDecrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error)`
-使用 RSA 私钥对数据进行解密。
+import (
+	"fmt"
 
-#### `func TextVerify(plaintext []byte, decryptedHash []byte) bool`
-验证明文的哈希值是否匹配。通常用于签名验证。
+	"github.com/2Kil/tkstar"
+)
 
-#### `func TextAesEncrypt(plainText, key string) (string, error)`
-AES 加密。
-- **模式**：AES-CFB 模式。
-- **输出**：URL 安全的 Base64 编码字符串。
+func main() {
+	items := []string{"A", "", "B", "A", "C", "B"}
+	fmt.Println(tkstar.HelperRemoveDuplicates(items))
+}
+```
 
-#### `func TextAesDecrypt(cipherText, key string) (string, error)`
-AES 解密。
-- **输入**：URL 安全的 Base64 编码密文。
+### `func LogFile(logFileName string, systemLog bool) (*logger.Logger, error)`
 
----
+初始化日志文件。
+
+```go
+package main
+
+import (
+	"log"
+
+	"github.com/2Kil/tkstar"
+)
+
+func main() {
+	l, err := tkstar.LogFile("app", false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer l.Close()
+
+	l.Info("service started")
+}
+```
 
 ## authorization 包
 
-`authorization` 包提供简单的远程授权验证功能，通过抓取指定网页表格数据来验证序列号有效期。
+导入：
 
-### 核心函数
+```go
+import "github.com/2Kil/tkstar/authorization"
+```
 
-#### `func NewClient(code string) *Client`
-创建授权客户端实例。
-- **参数**：`code` - 授权页面的标识代码。
+### `func NewClient(code string, pwd ...string) *Client`
 
-#### `func (c *Client) GetAccredit() ([]Accredit, error)`
-获取授权信息列表。
-- **功能**：访问远程页面，解析 HTML 表格提取序列号和过期时间。包含重试机制。
+创建授权客户端。新版活码可同时传密码。
 
-#### `func (c *Client) CheckAccredit(key string) bool`
-检查指定序列号是否有效且未过期。
-- **功能**：优先使用缓存数据，如果缓存为空则请求网络。验证序列号是否存在以及当前时间是否在有效期内。
+```go
+package main
+
+import "github.com/2Kil/tkstar/authorization"
+
+func main() {
+	_ = authorization.NewClient("active.clewm.net/q8tDtnl")
+	_ = authorization.NewClient("qr61.cn/o78kxB/q8tDtnl", "123456")
+}
+```
+
+### `func (c *Client) GetAccredit() ([]Accredit, error)`
+
+按网页解析方式获取授权表格。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/authorization"
+)
+
+func main() {
+	client := authorization.NewClient("active.clewm.net/q8tDtnl")
+	list, err := client.GetAccredit()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(list)
+}
+```
+
+### `func (c *Client) GetAccredit2() ([]Accredit, error)`
+
+按接口方式获取新版活码授权数据。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/authorization"
+)
+
+func main() {
+	client := authorization.NewClient("qr61.cn/o78kxB/q8tDtnl", "123456")
+	list, err := client.GetAccredit2()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(list)
+}
+```
+
+### `func (c *Client) CheckAccredit(key string) bool`
+
+检查某个序列号是否未过期。
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/2Kil/tkstar/authorization"
+)
+
+func main() {
+	client := authorization.NewClient("qr61.cn/o78kxB/q8tDtnl", "123456")
+	fmt.Println(client.CheckAccredit("DEVICE-001"))
+}
+```
+
+## network 包
+
+导入：
+
+```go
+import "github.com/2Kil/tkstar/network"
+```
+
+### `func NetProxyCurl(proxy, curlBash string) (int, string, error)`
+
+使用代理执行 curl 字符串。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/network"
+)
+
+func main() {
+	code, body, err := network.NetProxyCurl(
+		"http://127.0.0.1:7890",
+		`curl "https://httpbin.org/get" -H "Accept: application/json"`,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(code)
+	fmt.Println(body)
+}
+```
+
+### `func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, error)`
+
+只解析，不发送请求。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/network"
+)
+
+func main() {
+	method, urlStr, headers, body, err := network.NetParseCurlComd(
+		`curl "https://example.com/api" -X POST -H "Content-Type: application/json" --data-raw "{\"name\":\"tkstar\"}"`,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(method)
+	fmt.Println(urlStr)
+	fmt.Println(headers.Get("Content-Type"))
+	fmt.Println(string(body))
+}
+```
+
+### `func NetCurl(curlBash string) (int, string, error)`
+
+不使用代理执行 curl 字符串。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/network"
+)
+
+func main() {
+	code, body, err := network.NetCurl(`curl "https://httpbin.org/get"`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(code)
+	fmt.Println(body)
+}
+```
+
+## text 包
+
+导入：
+
+```go
+import "github.com/2Kil/tkstar/text"
+```
+
+### `func TextGetKeyPair(bits int) (*KeyPair, error)`
+
+生成 RSA 密钥对。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/text"
+)
+
+func main() {
+	keyPair, err := text.TextGetKeyPair(1024)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(keyPair.PublicKey.N)
+}
+```
+
+### `func TextEncrypt(pub *PublicKey, plaintext []byte) ([]byte, error)`
+
+使用公钥加密。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/text"
+)
+
+func main() {
+	keyPair, err := text.TextGetKeyPair(1024)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cipherText, err := text.TextEncrypt(keyPair.PublicKey, []byte("hello"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(cipherText)
+}
+```
+
+### `func TextDecrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error)`
+
+使用私钥解密。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/text"
+)
+
+func main() {
+	keyPair, err := text.TextGetKeyPair(1024)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cipherText, err := text.TextEncrypt(keyPair.PublicKey, []byte("hello"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	plainText, err := text.TextDecrypt(keyPair.PrivateKey, cipherText)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(plainText))
+}
+```
+
+### `func TextVerify(plaintext []byte, decryptedHash []byte) bool`
+
+比较明文 SHA-256 和“解密后的哈希值”是否一致。
+
+```go
+package main
+
+import (
+	"crypto/sha256"
+	"fmt"
+
+	"github.com/2Kil/tkstar/text"
+)
+
+func main() {
+	plain := []byte("hello")
+	hash := sha256.Sum256(plain)
+	fmt.Println(text.TextVerify(plain, hash[:]))
+}
+```
+
+### `func TextAesEncrypt(plainText, key string) (string, error)`
+
+使用 AES-CFB 加密。密钥长度必须是 16、24 或 32 字节。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/text"
+)
+
+func main() {
+	cipherText, err := text.TextAesEncrypt("hello", "1234567890abcdef")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(cipherText)
+}
+```
+
+### `func TextAesDecrypt(cipherText, key string) (string, error)`
+
+解密 `TextAesEncrypt` 返回的数据。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2Kil/tkstar/text"
+)
+
+func main() {
+	cipherText, err := text.TextAesEncrypt("hello", "1234567890abcdef")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	plainText, err := text.TextAesDecrypt(cipherText, "1234567890abcdef")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(plainText)
+}
+```
+
+## screen 包
+
+导入：
+
+```go
+import "github.com/2Kil/tkstar/screen"
+```
+
+### `func ScreenInit()`
+
+初始化透明悬浮窗。
+
+```go
+package main
+
+import "github.com/2Kil/tkstar/screen"
+
+func main() {
+	go screen.ScreenInit()
+	select {}
+}
+```
+
+### `func ScreenUpdateText(text string)`
+
+更新悬浮窗文本。
+
+```go
+package main
+
+import (
+	"time"
+
+	"github.com/2Kil/tkstar/screen"
+)
+
+func main() {
+	go screen.ScreenInit()
+	time.Sleep(time.Second)
+	screen.ScreenUpdateText("RUN")
+	select {}
+}
+```
+
+### `func ScreenGetText() string`
+
+读取当前显示文本。
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/2Kil/tkstar/screen"
+)
+
+func main() {
+	screen.ScreenUpdateText("READY")
+	fmt.Println(screen.ScreenGetText())
+}
+```
+
+## hardware 包
+
+导入：
+
+```go
+import "github.com/2Kil/tkstar/hardware"
+```
+
+### `func SysGetSerialKey() string`
+
+生成设备特征码。
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/2Kil/tkstar/hardware"
+)
+
+func main() {
+	fmt.Println(hardware.SysGetSerialKey())
+}
+```
+
+### `func KeyIsPress(keyName string) bool`
+
+检测某个键当前是否按下。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/2Kil/tkstar/hardware"
+)
+
+func main() {
+	for {
+		if hardware.KeyIsPress("F8") {
+			fmt.Println("F8 pressed")
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+```
+
+## edge 包
+
+导入：
+
+```go
+import tkEdge "github.com/2Kil/tkstar/edge"
+```
+
+### `func Run(urlPath string, msedgePath ...string)`
+
+启动带界面的 Edge。
+
+```go
+package main
+
+import tkEdge "github.com/2Kil/tkstar/edge"
+
+func main() {
+	tkEdge.Run("https://example.com")
+	select {}
+}
+```
+
+### `func RunCli(urlPath string, msedgePath ...string)`
+
+启动无头 Edge。
+
+```go
+package main
+
+import tkEdge "github.com/2Kil/tkstar/edge"
+
+func main() {
+	tkEdge.RunCli("https://example.com")
+	select {}
+}
+```
+
+### `func Stop()`
+
+停止当前浏览器上下文。
+
+```go
+package main
+
+import (
+	"time"
+
+	tkEdge "github.com/2Kil/tkstar/edge"
+)
+
+func main() {
+	tkEdge.Run("https://example.com")
+	time.Sleep(5 * time.Second)
+	tkEdge.Stop()
+}
+```
+
+### `func LoadUrl(targetURL string)`
+
+让已启动的浏览器跳转到新地址。
+
+```go
+package main
+
+import (
+	"time"
+
+	tkEdge "github.com/2Kil/tkstar/edge"
+)
+
+func main() {
+	tkEdge.Run("https://example.com")
+	time.Sleep(3 * time.Second)
+	tkEdge.LoadUrl("https://httpbin.org/get")
+	select {}
+}
+```
+
+### `func GetUrl() (string, error)`
+
+读取当前页面地址。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"time"
+
+	tkEdge "github.com/2Kil/tkstar/edge"
+)
+
+func main() {
+	tkEdge.Run("https://example.com")
+	time.Sleep(3 * time.Second)
+
+	urlStr, err := tkEdge.GetUrl()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(urlStr)
+}
+```
+
+### `func GetCookies() (map[string]string, error)`
+
+获取当前页面 Cookie。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"time"
+
+	tkEdge "github.com/2Kil/tkstar/edge"
+)
+
+func main() {
+	tkEdge.Run("https://example.com")
+	time.Sleep(3 * time.Second)
+
+	cookies, err := tkEdge.GetCookies()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(cookies)
+}
+```
+
+### `func GetCookiesAll() (map[string]string, error)`
+
+从 storage 读取全部 Cookie。
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"time"
+
+	tkEdge "github.com/2Kil/tkstar/edge"
+)
+
+func main() {
+	tkEdge.Run("https://example.com")
+	time.Sleep(3 * time.Second)
+
+	cookies, err := tkEdge.GetCookiesAll()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(cookies)
+}
+```
+
+### `func GetReq(key string) string`
+
+获取最近一次匹配请求中的请求头。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+
+	tkEdge "github.com/2Kil/tkstar/edge"
+)
+
+func main() {
+	tkEdge.Run("https://httpbin.org/headers")
+	time.Sleep(5 * time.Second)
+	fmt.Println(tkEdge.GetReq("User-Agent"))
+}
+```
+
+### `func GetRes(key string) string`
+
+获取最近一次匹配响应中的响应头。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+
+	tkEdge "github.com/2Kil/tkstar/edge"
+)
+
+func main() {
+	tkEdge.Run("https://httpbin.org/get")
+	time.Sleep(5 * time.Second)
+	fmt.Println(tkEdge.GetRes("content-type"))
+}
+```
+
+### `func GetUrlQuery(key string) string`
+
+获取最近一次匹配请求 URL 里的查询参数。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+
+	tkEdge "github.com/2Kil/tkstar/edge"
+)
+
+func main() {
+	tkEdge.Run("https://httpbin.org/get?token=123")
+	time.Sleep(5 * time.Second)
+	fmt.Println(tkEdge.GetUrlQuery("token"))
+}
+```
+
+### `func Clear()`
+
+清理最近一次保存的请求/响应信息。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+
+	tkEdge "github.com/2Kil/tkstar/edge"
+)
+
+func main() {
+	tkEdge.Run("https://httpbin.org/get?token=123")
+	time.Sleep(5 * time.Second)
+
+	fmt.Println(tkEdge.GetUrlQuery("token"))
+	tkEdge.Clear()
+	fmt.Println(tkEdge.GetUrlQuery("token"))
+}
+```
+
+## 许可证
+
+本项目采用 [LICENSE](./LICENSE) 中定义的许可证。
