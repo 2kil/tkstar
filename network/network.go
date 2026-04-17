@@ -120,8 +120,20 @@ func NetParseCurlComd(curlCmd string) (string, string, http.Header, []byte, erro
 				method = "POST"
 			}
 			i++
+		case "--url":
+			if i+1 >= len(tokens) {
+				return "", "", nil, nil, fmt.Errorf("%s 缺少URL", token)
+			}
+			rawURL = tokens[i+1]
+			i++
 		default:
 			if strings.HasPrefix(token, "-") {
+				if skip, handled := curlOptionValueCount(token); handled {
+					if i+skip >= len(tokens) {
+						return "", "", nil, nil, fmt.Errorf("%s 缺少参数", token)
+					}
+					i += skip
+				}
 				continue
 			}
 			if rawURL == "" {
@@ -215,4 +227,35 @@ func splitCurlCommand(cmd string) ([]string, error) {
 
 	flush()
 	return tokens, nil
+}
+
+func curlOptionValueCount(token string) (int, bool) {
+	if strings.Contains(token, "=") {
+		return 0, true
+	}
+
+	if strings.HasPrefix(token, "--") {
+		switch token {
+		case "--proxy", "--user", "--cookie", "--referer", "--compressed", "--connect-timeout", "--max-time", "--retry", "--cacert", "--cert", "--key", "--url", "--output", "--request-target":
+			return 1, true
+		}
+		return 0, false
+	}
+
+	if len(token) == 2 && token[0] == '-' {
+		switch token[1] {
+		case 'x', 'U', 'u', 'b', 'e', 'm', 'o', 'E':
+			return 1, true
+		}
+		return 0, false
+	}
+
+	if len(token) > 2 && token[0] == '-' && token[1] != '-' {
+		switch token[1] {
+		case 'x', 'U', 'u', 'b', 'e', 'm', 'o', 'E':
+			return 0, true
+		}
+	}
+
+	return 0, false
 }

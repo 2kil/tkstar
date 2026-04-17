@@ -53,3 +53,33 @@ func TestNetParseCurlComdRejectsBrokenQuotes(t *testing.T) {
 		t.Fatal("expected error for broken quotes")
 	}
 }
+
+func TestNetParseCurlComdSkipsKnownOptionValues(t *testing.T) {
+	cmd := `curl --proxy http://127.0.0.1:7890 https://example.com/api`
+
+	method, urlStr, _, _, err := NetParseCurlComd(cmd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if method != "GET" {
+		t.Fatalf("method = %q, want GET", method)
+	}
+	if urlStr != "https://example.com/api" {
+		t.Fatalf("url = %q, want https://example.com/api", urlStr)
+	}
+}
+
+func TestNetParseCurlComdSupportsExplicitURLFlag(t *testing.T) {
+	cmd := `curl --url https://example.com/api -H "Accept: application/json"`
+
+	_, urlStr, headers, _, err := NetParseCurlComd(cmd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if urlStr != "https://example.com/api" {
+		t.Fatalf("url = %q", urlStr)
+	}
+	if got := headers.Get("Accept"); got != "application/json" {
+		t.Fatalf("Accept = %q", got)
+	}
+}

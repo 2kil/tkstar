@@ -31,7 +31,8 @@ type dataStore struct {
 }
 
 var (
-	store = &dataStore{}
+	store     = &dataStore{}
+	browserMu sync.RWMutex
 	// StatusChan 用于外部接收浏览器关闭信号
 	StatusChan = make(chan error, 1)
 	// 用于接收导航指令的管道
@@ -114,13 +115,16 @@ func LoadUrl(targetURL string) {
 
 // GetUrl获取浏览器当前url
 func GetUrl() (string, error) {
-	if browserCtx == nil {
+	browserMu.RLock()
+	ctx := browserCtx
+	browserMu.RUnlock()
+	if ctx == nil {
 		return "", fmt.Errorf("浏览器尚未启动")
 	}
 
 	var currentURL string
 	// 使用 chromedp.Location 获取当前页面的 URL
-	err := chromedp.Run(browserCtx, chromedp.Location(&currentURL))
+	err := chromedp.Run(ctx, chromedp.Location(&currentURL))
 	if err != nil {
 		return "", err
 	}
@@ -129,21 +133,27 @@ func GetUrl() (string, error) {
 
 // Stop 停止运行
 func Stop() {
-	if browserCancel != nil {
-		browserCancel()
-	}
+	browserMu.Lock()
+	cancel := browserCancel
 	browserCtx = nil
 	browserCancel = nil
+	browserMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 // GetCookies 获取当前页面的所有 Cookie 并返回 Map 格式 [Name]Value
 func GetCookies() (map[string]string, error) {
-	if browserCtx == nil {
+	browserMu.RLock()
+	ctx := browserCtx
+	browserMu.RUnlock()
+	if ctx == nil {
 		return nil, fmt.Errorf("浏览器尚未启动")
 	}
 
 	var cookies []*network.Cookie
-	err := chromedp.Run(browserCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+	err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
 		var err error
 		cookies, err = network.GetCookies().Do(ctx)
 		return err
@@ -162,12 +172,15 @@ func GetCookies() (map[string]string, error) {
 
 // GetCookiesAll 获取所有 Cookie (Storage) 并返回 Map 格式 [Name]Value
 func GetCookiesAll() (map[string]string, error) {
-	if browserCtx == nil {
+	browserMu.RLock()
+	ctx := browserCtx
+	browserMu.RUnlock()
+	if ctx == nil {
 		return nil, fmt.Errorf("浏览器尚未启动")
 	}
 
 	var cookies []*network.Cookie
-	err := chromedp.Run(browserCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+	err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
 		var err error
 		cookies, err = storage.GetCookies().Do(ctx)
 		return err
@@ -258,8 +271,10 @@ func commonRun(opts []chromedp.ExecAllocatorOption, urlPath string) error {
 	defer cancel()
 
 	// 赋值给全局变量
+	browserMu.Lock()
 	browserCtx = ctx
 	browserCancel = cancel
+	browserMu.Unlock()
 
 	// 监听逻辑
 	chromedp.ListenTarget(ctx, func(ev interface{}) {

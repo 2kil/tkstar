@@ -12,6 +12,7 @@ import (
 	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -21,7 +22,7 @@ import (
 	"crypto/cipher"
 )
 
-//密钥对
+// 密钥对
 type KeyPair struct {
 	PublicKey  *PublicKey
 	PrivateKey *PrivateKey
@@ -36,7 +37,6 @@ type PrivateKey struct {
 	N *big.Int // 同公钥的N
 	D *big.Int // 解密指数
 }
-
 
 // TextGetKeyPair 生成指定位数的RSA密钥对。
 func TextGetKeyPair(bits int) (*KeyPair, error) {
@@ -103,7 +103,8 @@ func TextGetKeyPair(bits int) (*KeyPair, error) {
 // 注意：这是一个基础的RSA实现，没有使用填充方案（如OAEP），
 // 在生产环境中，推荐使用 `crypto/rsa` 包以获得更高的安全性。
 func TextEncrypt(pub *PublicKey, plaintext []byte) ([]byte, error) {
-	plaintextBig := new(big.Int).SetBytes(plaintext)
+	encodedPlaintext := encodeRSAPlaintext(plaintext)
+	plaintextBig := new(big.Int).SetBytes(encodedPlaintext)
 	if plaintextBig.Cmp(pub.N) >= 0 {
 		return nil, fmt.Errorf("明文数据过大，无法加密")
 	}
@@ -118,7 +119,7 @@ func TextEncrypt(pub *PublicKey, plaintext []byte) ([]byte, error) {
 func TextDecrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	cipherBig := new(big.Int).SetBytes(ciphertext)
 	plaintextBig := new(big.Int).Exp(cipherBig, priv.D, priv.N)
-	return plaintextBig.Bytes(), nil
+	return decodeRSAPlaintext(plaintextBig.Bytes())
 }
 
 // TextVerify 验证明文的哈希值是否与解密后的哈希值匹配。
@@ -177,4 +178,30 @@ func TextAesDecrypt(cipherText, key string) (string, error) {
 	stream.XORKeyStream(cipherTextBytes, cipherTextBytes)
 
 	return string(cipherTextBytes), nil
+}
+
+func encodeRSAPlaintext(plaintext []byte) []byte {
+	encoded := make([]byte, 5+len(plaintext))
+	encoded[0] = 1
+	binary.BigEndian.PutUint32(encoded[1:5], uint32(len(plaintext)))
+	copy(encoded[5:], plaintext)
+	return encoded
+}
+
+func decodeRSAPlaintext(data []byte) ([]byte, error) {
+	if len(data) < 5 {
+		return nil, fmt.Errorf("解密结果格式无效")
+	}
+	if data[0] != 1 {
+		return nil, fmt.Errorf("解密结果标记无效")
+	}
+
+	length := binary.BigEndian.Uint32(data[1:5])
+	if len(data[5:]) < int(length) {
+		return nil, fmt.Errorf("解密结果长度无效")
+	}
+
+	plaintext := make([]byte, int(length))
+	copy(plaintext, data[5:5+int(length)])
+	return plaintext, nil
 }

@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -148,7 +149,7 @@ func (c *Client) GetAccredit() ([]Accredit, error) {
 	for k, v := range tableData {
 		c.Data = append(c.Data, Accredit{Sn: k, Time: v})
 	}
-	return c.Data, nil
+	return cloneAccredits(c.Data), nil
 }
 
 // removeHTMLTags 函数用于移除 HTML 标签
@@ -174,7 +175,7 @@ func parseHTMLTable(html string) map[string]string {
 // CheckAccredit 检查指定 key 的授权是否有效
 func (c *Client) CheckAccredit(key string) bool {
 	c.mu.Lock()
-	data := c.Data
+	data := cloneAccredits(c.Data)
 	c.mu.Unlock()
 
 	if len(data) == 0 {
@@ -205,16 +206,25 @@ func (c *Client) CheckAccredit(key string) bool {
 
 // isTimeValid 辅助方法：验证时间字符串是否有效且未过期
 func (c *Client) isTimeValid(val string) bool {
-	layouts := []string{
+	timeLayouts := []string{
 		"2006-01-02 15:04:05",
-		"2006-01-02",
 		"2006/01/02 15:04:05",
+	}
+	dateLayouts := []string{
+		"2006-01-02",
 		"2006/01/02",
 	}
 
-	for _, layout := range layouts {
+	for _, layout := range timeLayouts {
 		if t, err := time.ParseInLocation(layout, strings.TrimSpace(val), time.Local); err == nil {
 			return !time.Now().After(t)
+		}
+	}
+
+	for _, layout := range dateLayouts {
+		if t, err := time.ParseInLocation(layout, strings.TrimSpace(val), time.Local); err == nil {
+			endOfDay := t.Add(24*time.Hour - time.Nanosecond)
+			return !time.Now().After(endOfDay)
 		}
 	}
 	return false
@@ -223,20 +233,47 @@ func (c *Client) isTimeValid(val string) bool {
 // GetAccredit2 获取授权信息，更新内部缓存并返回数据 新版活码
 // url格式 qr61.cn/o78kxB/q8tDtnl
 func (c *Client) GetAccredit2() ([]Accredit, error) {
-	payload := fmt.Sprintf(`{
-		"requests": [
+	formBody := url.Values{
+		"qrcode_route":            []string{c.Code},
+		"password":                []string{c.Pwd},
+		"render_default_fields":   []string{"0"},
+		"render_component_number": []string{"0"},
+		"render_edit_btn":         []string{"1"},
+		"package_id":              []string{""},
+	}.Encode()
+
+	payloadBody, err := json.Marshal(struct {
+		Requests []struct {
+			Method  string            `json:"method"`
+			Timeout int               `json:"timeout"`
+			Header  map[string]string `json:"header"`
+			Path    string            `json:"path"`
+			Body    string            `json:"body"`
+		} `json:"requests"`
+	}{
+		Requests: []struct {
+			Method  string            `json:"method"`
+			Timeout int               `json:"timeout"`
+			Header  map[string]string `json:"header"`
+			Path    string            `json:"path"`
+			Body    string            `json:"body"`
+		}{
 			{
-				"method": "POST",
-				"timeout": 10000,
-				"header": {
-					"content-type": "application/x-www-form-urlencoded"
+				Method:  "POST",
+				Timeout: 10000,
+				Header: map[string]string{
+					"content-type": "application/x-www-form-urlencoded",
 				},
-				"path": "/qrcoderoute/qrcodeRouteNew",
-				"body": "qrcode_route=%s&password=%s&render_default_fields=0&render_component_number=0&render_edit_btn=1&package_id="
-			}
-		]
-	}`, c.Code, c.Pwd)
-	var data = strings.NewReader(payload)
+				Path: "/qrcoderoute/qrcodeRouteNew",
+				Body: formBody,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var data = strings.NewReader(string(payloadBody))
 	req, err := http.NewRequest("POST", "https://nc.caoliao.net/batch-requests", data)
 	if err != nil {
 		return nil, err
@@ -312,5 +349,14 @@ func (c *Client) GetAccredit2() ([]Accredit, error) {
 	for k, v := range tableData {
 		c.Data = append(c.Data, Accredit{Sn: k, Time: v})
 	}
-	return c.Data, nil
+	return cloneAccredits(c.Data), nil
+}
+
+func cloneAccredits(data []Accredit) []Accredit {
+	if len(data) == 0 {
+		return nil
+	}
+	cloned := make([]Accredit, len(data))
+	copy(cloned, data)
+	return cloned
 }
